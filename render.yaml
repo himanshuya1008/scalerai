@@ -1,4 +1,4 @@
-services:
+now services:
   - type: web
     name: scalerai-api
     runtime: python

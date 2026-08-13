@@ -13,6 +13,6 @@ def test_luhn_invalid():
 def test_email_and_phone_regex():
     text = 'Email: john.doe@example.com Phone: +91 98765 43210'
     dets = regex_detectors(text)
-    types = {d[0] for d in dets}
+    types = {d["type"] for d in dets}
     assert 'EMAIL' in types
     assert 'PHONE' in types

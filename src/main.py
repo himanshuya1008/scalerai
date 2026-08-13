@@ -1,10 +1,17 @@
 import argparse
 import os
-from extract import load_docx, iter_text_blocks
-from detectors import detect_all
-from anonymizer import Anonymizer
-from writer import apply_replacements, apply_replacements_to_container
-from evaluator import evaluate, load_ground_truth
+try:
+    from .extract import load_docx, iter_text_blocks
+    from .detectors import detect_all
+    from .anonymizer import Anonymizer
+    from .writer import apply_replacements, apply_replacements_to_container
+    from .evaluator import evaluate, load_ground_truth
+except ImportError:
+    from extract import load_docx, iter_text_blocks
+    from detectors import detect_all
+    from anonymizer import Anonymizer
+    from writer import apply_replacements, apply_replacements_to_container
+    from evaluator import evaluate, load_ground_truth
 
 
 def collect_detections(doc_path: str):

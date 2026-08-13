@@ -1,9 +1,17 @@
 from flask import Flask, request, send_file, jsonify
 from flask_cors import CORS
 import os
-from main import collect_detections, build_replacements_for_container
-from anonymizer import Anonymizer
-from extract import load_docx
+import uuid
+from werkzeug.utils import secure_filename
+
+try:
+    from .main import collect_detections, build_replacements_for_container
+    from .anonymizer import Anonymizer
+    from .writer import apply_replacements_to_container
+except ImportError:
+    from main import collect_detections, build_replacements_for_container
+    from anonymizer import Anonymizer
+    from writer import apply_replacements_to_container
 
 app = Flask(__name__)
 CORS(app)
@@ -21,17 +29,21 @@ def upload_and_redact():
     f = request.files['file']
     if f.filename == '':
         return jsonify({'error': 'no selected file'}), 400
-    in_path = os.path.join(UPLOAD_FOLDER, f.filename)
+    safe_name = secure_filename(f.filename)
+    if not safe_name.lower().endswith('.docx'):
+        return jsonify({'error': 'only .docx files are supported'}), 400
+
+    unique_name = f"{uuid.uuid4().hex}_{safe_name}"
+    in_path = os.path.join(UPLOAD_FOLDER, unique_name)
     f.save(in_path)
 
     anonymizer = Anonymizer(persist_path=os.path.join(OUTPUT_FOLDER, 'mapping.json'))
     doc, detections = collect_detections(in_path)
     container_reps = build_replacements_for_container(detections, anonymizer)
     # apply replacements per container
-    from writer import apply_replacements_to_container
     for item in container_reps:
         apply_replacements_to_container(item['container'], item['replacements'])
-    out_path = os.path.join(OUTPUT_FOLDER, f"redacted_{f.filename}")
+    out_path = os.path.join(OUTPUT_FOLDER, f"redacted_{safe_name}")
     doc.save(out_path)
     anonymizer.save()
     return send_file(out_path, as_attachment=True)

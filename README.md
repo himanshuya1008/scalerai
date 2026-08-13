@@ -43,6 +43,20 @@ npm start
 
 If port 3000 is already occupied, Vite will automatically use the next available port (for example, 3001).
 
+4. Launch backend + frontend together (Windows PowerShell):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/start_all.ps1
+```
+
+Testing
+
+```powershell
+pytest -q
+```
+
+This includes API integration tests for `/status` and `/upload` using Flask's test client.
+
 Outputs
 
 - `output/redacted.docx` — redacted document

@@ -79,13 +79,24 @@ Deployment (recommended)
 	 - Build command: `pip install -r requirements.txt`
 	 - Start command: `gunicorn src.wsgi:app`
 	 - Set env vars: `CORS_ORIGINS`, `MAX_UPLOAD_MB`
+	- Optional: use `render.yaml` for one-click Render setup.
 
 2. Deploy frontend (Vercel/Netlify):
 	 - Build command: `npm run build`
 	 - Output directory: `dist`
 	 - Set env var: `VITE_API_BASE_URL=https://<your-backend-domain>`
+	- Vercel config is included in `frontend/vercel.json`.
+	- Netlify config is included in `frontend/netlify.toml`.
 
 3. After deploy, set backend `CORS_ORIGINS` to the exact frontend domain.
+
+Quick deploy checklist
+
+1. Push latest code to GitHub.
+2. Create Render service from this repository (or use `render.yaml`).
+3. Deploy frontend from the `frontend` folder in Vercel (or Netlify).
+4. Set `VITE_API_BASE_URL` to your Render backend URL.
+5. Update backend `CORS_ORIGINS` with your deployed frontend URL.
 
 Outputs
 

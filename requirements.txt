@@ -3,3 +3,5 @@ spacy>=3.0.0
 faker>=13.0.0
 regex
 pandas
+Flask
+flask-cors

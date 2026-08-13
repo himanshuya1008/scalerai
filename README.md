@@ -26,8 +26,22 @@ python -m spacy download en_core_web_sm
 2. Run the redactor on a file (example):
 
 ```powershell
-python src/main.py --input "input/Red Herring Prospectus_Redacted.docx" --output "output/redacted.docx" --ground_truth tests/ground_truth.json
+python src/main.py --input "input/Red Herring Prospectus.docx" --output "output/redacted.docx" --ground_truth tests/ground_truth.json
 ```
+
+3. Run the web app locally:
+
+```powershell
+# Terminal 1 (API)
+python src/api.py
+
+# Terminal 2 (frontend)
+cd frontend
+npm install --include=optional
+npm start
+```
+
+If port 3000 is already occupied, Vite will automatically use the next available port (for example, 3001).
 
 Outputs
 

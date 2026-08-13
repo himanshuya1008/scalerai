@@ -8,3 +8,8 @@ input/
 .env
 .idea/
 .vscode/
+
+# Frontend dependencies/build artifacts
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/

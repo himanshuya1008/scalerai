@@ -1,0 +1,9 @@
+[
+  {"type": "NAME", "text": "Rashi Patil"},
+  {"type": "EMAIL", "text": "rashhi.patil@gmail.com"},
+  {"type": "PHONE", "text": "+91 9876543210"},
+  {"type": "COMPANY", "text": "SCALER AI LABS"},
+  {"type": "ADDRESS", "text": "Bangalore"},
+  {"type": "DATE", "text": "Aug 10 2026"},
+  {"type": "IP", "text": "192.168.1.10"}
+]

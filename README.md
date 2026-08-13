@@ -57,6 +57,36 @@ pytest -q
 
 This includes API integration tests for `/status` and `/upload` using Flask's test client.
 
+Environment variables
+
+- Backend:
+	- `CORS_ORIGINS` (comma-separated allowlist, example: `https://your-frontend.vercel.app`)
+	- `MAX_UPLOAD_MB` (default: `25`)
+	- `PORT` (default: `8000`)
+	- `FLASK_DEBUG` (`true`/`false`, default: `false`)
+- Frontend:
+	- `VITE_API_BASE_URL` (example: `https://your-backend.onrender.com`)
+
+Create local frontend env file:
+
+```powershell
+copy frontend/.env.example frontend/.env
+```
+
+Deployment (recommended)
+
+1. Deploy backend (Render/Railway):
+	 - Build command: `pip install -r requirements.txt`
+	 - Start command: `gunicorn src.wsgi:app`
+	 - Set env vars: `CORS_ORIGINS`, `MAX_UPLOAD_MB`
+
+2. Deploy frontend (Vercel/Netlify):
+	 - Build command: `npm run build`
+	 - Output directory: `dist`
+	 - Set env var: `VITE_API_BASE_URL=https://<your-backend-domain>`
+
+3. After deploy, set backend `CORS_ORIGINS` to the exact frontend domain.
+
 Outputs
 
 - `output/redacted.docx` — redacted document

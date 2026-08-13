@@ -1,5 +1,7 @@
 import { useState } from 'react';
 
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000').replace(/\/$/, '');
+
 function App() {
   const [file, setFile] = useState(null);
   const [status, setStatus] = useState('');
@@ -16,7 +18,7 @@ function App() {
 
     setStatus('Uploading and redacting...');
     try {
-      const response = await fetch('http://localhost:8000/upload', {
+      const response = await fetch(`${API_BASE_URL}/upload`, {
         method: 'POST',
         body: formData,
       });
@@ -37,7 +39,8 @@ function App() {
       URL.revokeObjectURL(url);
       setStatus('Redacted document downloaded successfully.');
     } catch (error) {
-      setStatus(error.message || 'Upload failed.');
+      const message = error instanceof Error ? error.message : 'Upload failed.';
+      setStatus(message);
     }
   };
 

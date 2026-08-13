@@ -14,12 +14,28 @@ except ImportError:
     from writer import apply_replacements_to_container
 
 app = Flask(__name__)
-CORS(app)
+
+DEFAULT_CORS_ORIGINS = (
+    'http://localhost:3000,'
+    'http://127.0.0.1:3000,'
+    'http://localhost:3001,'
+    'http://127.0.0.1:3001'
+)
+cors_origins = [o.strip() for o in os.getenv('CORS_ORIGINS', DEFAULT_CORS_ORIGINS).split(',') if o.strip()]
+CORS(app, resources={r"/*": {"origins": cors_origins}})
+
+max_upload_mb = int(os.getenv('MAX_UPLOAD_MB', '25'))
+app.config['MAX_CONTENT_LENGTH'] = max_upload_mb * 1024 * 1024
 
 UPLOAD_FOLDER = os.path.join(os.getcwd(), 'input')
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 OUTPUT_FOLDER = os.path.join(os.getcwd(), 'output')
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
+
+
+@app.errorhandler(413)
+def file_too_large(_error):
+    return jsonify({'error': f'file exceeds {max_upload_mb}MB limit'}), 413
 
 
 @app.route('/upload', methods=['POST'])
@@ -51,8 +67,10 @@ def upload_and_redact():
 
 @app.route('/status', methods=['GET'])
 def status():
-    return jsonify({'status': 'ok'})
+    return jsonify({'status': 'ok', 'max_upload_mb': max_upload_mb})
 
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8000, debug=True)
+    debug_enabled = os.getenv('FLASK_DEBUG', 'false').lower() in ('1', 'true', 'yes')
+    port = int(os.getenv('PORT', '8000'))
+    app.run(host='0.0.0.0', port=port, debug=debug_enabled)

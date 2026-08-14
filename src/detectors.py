@@ -19,7 +19,8 @@ if os.path.exists(gazetteer_file_path):
 try:
     import spacy
     _nlp = spacy.load("en_core_web_sm")
-except Exception:
+except Exception as e:
+    print(f"WARNING: spaCy or 'en_core_web_sm' model could not be loaded. PERSON names detection will be disabled. Error: {e}")
     _nlp = None
 
 

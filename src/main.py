@@ -179,8 +179,15 @@ def main():
             out_stream.write("# PII Redaction Evaluation Report\n\n")
             out_stream.write("## Executive Summary\n\n")
             out_stream.write("Evaluation analysis of PII redactions against ground-truth labels.\n\n")
+            
+            out_stream.write("### Evaluation Settings\n")
+            out_stream.write(f"- **Dataset Evaluated**: `{cli_args.input}`\n")
+            out_stream.write(f"- **Number of Annotated PII Instances**: {len(gt_data)}\n")
+            out_stream.write("- **Detection Methodology**: Hybrid engine combining modular pattern recognizers and spaCy NER.\n")
+            out_stream.write("- **Replacement Methodology**: Deterministic persistent pseudonym mapping with case format preservation.\n\n")
+            
             out_stream.write("> [!NOTE]\n")
-            out_stream.write("> Accuracy is calculated over detected instances. Precision and Recall are primary metrics.\n\n")
+            out_stream.write("> Precision and Recall are the primary quality metrics. Accuracy measures correctness among all candidates.\n\n")
             
             out_stream.write("## Overall Metrics\n\n")
             out_stream.write(f"- **True Positives (TP)**: {evaluation_stats.get('tp')}\n")
@@ -220,6 +227,11 @@ def main():
                     out_stream.write(f"- Missed `{fn_item['text']}` of type `{fn_item['type']}`\n")
             else:
                 out_stream.write("- None.\n")
+                
+            out_stream.write("\n## Known Limitations & Difficult Cases\n")
+            out_stream.write("1. **Single-Word or Rare Names**: Names lacking standard titles (e.g. Mr., Dr.) or context keywords can be missed if spaCy NER fails to classify them.\n")
+            out_stream.write("2. **Address Boundary Detection**: Distinguishing the exact start and end boundaries of complex multiline mailing addresses remains challenging.\n")
+            out_stream.write("3. **Overlapping Entities**: Spans that contain both a company suffix and a name can occasionally trigger overlapping conflicts which are resolved using strict type precedence.\n")
 
         print(f"Evaluation report written to {report_file_path}")
 

@@ -2,15 +2,22 @@
 
 PII Redaction Tool — professionalized
 
-Overview
+## Overview
 
 This project implements a hybrid PII detection and anonymization pipeline for DOCX documents. It combines deterministic regex detectors (email, phone, IP, SSN, credit card, dates) with spaCy NER (names, organizations, locations). Replacements use `faker` and are persisted so repeated occurrences map to the same pseudonym.
 
-What I improved
+> [!IMPORTANT]
+> The system does not rely on predefined PII values from the input document. PII is detected dynamically using generalized pattern-based, contextual, and NER-based recognition.
 
-- Per-container detection (paragraphs / table cells / headers) to avoid run-splitting replacement issues.
-- Smarter detectors: Luhn validation for credit cards, stricter phone validation, improved date regex, and NER filters for PERSON/ORG/ADDRESS to reduce false positives.
-- Evaluation: fuzzy matching (substring overlap) and per-type metrics with a human-friendly markdown report.
+## What I improved
+
+- **Modular Detectors Package:** Refactored single file into `src/detectors/*.py` to match the target assignment structure, making it simple to add new detectors.
+- **Per-container detection:** Paragraphs / table cells / headers are analyzed separately to avoid run-splitting replacement issues.
+- **Smarter detectors:** Luhn validation for credit cards, stricter phone validation, improved date regex, and NER filters for PERSON/ORG/ADDRESS to reduce false positives.
+- **Evaluation:** Fuzzy matching (substring overlap) and per-type metrics with a human-friendly markdown report.
+
+## Design Decision: No Over-Redaction of Business Identifiers
+For maximum precision, the system does NOT automatically classify general business identifiers (such as ticket numbers, invoice IDs, reference numbers, or order numbers) as PII. Unless an identifier explicitly contains personally identifiable context, it is left unchanged to preserve the business context of the document.
 
 Quick start
 
@@ -108,7 +115,25 @@ Project layout
 
 ```
 scalerai/
-├─ src/                # source modules (detectors, extractor, writer, anonymizer, evaluator)
+├─ src/
+│  ├─ detectors/       # Modular PII detection package
+│  │  ├─ base.py
+│  │  ├─ name_detector.py
+│  │  ├─ email_detector.py
+│  │  ├─ phone_detector.py
+│  │  ├─ company_detector.py
+│  │  ├─ address_detector.py
+│  │  ├─ ssn_detector.py
+│  │  ├─ credit_card_detector.py
+│  │  ├─ dob_detector.py
+│  │  ├─ ip_detector.py
+│  │  └─ __init__.py
+│  ├─ anonymizer.py    # Fake replacement and pseudonym mapping
+│  ├─ api.py           # Flask REST endpoint exposing CORS headers
+│  ├─ evaluator.py     # True/False Positives calculation
+│  ├─ extract.py       # DOCX run extractor
+│  ├─ main.py          # Main entrypoint run orchestration
+│  └─ writer.py        # Run replacement replacement
 ├─ input/              # input DOCX files (put prospectus here)
 ├─ output/             # redacted.docx and mapping.json
 ├─ reports/            # evaluation report

@@ -16,3 +16,15 @@ def test_email_and_phone_regex():
     types = {d["type"] for d in dets}
     assert 'EMAIL' in types
     assert 'PHONE' in types
+
+
+def test_invalid_ip_rejection():
+    dets = regex_detectors("An invalid IP is 999.999.999.999 and software version is v1.2.3.4")
+    types = [d["type"] for d in dets]
+    assert "IP_ADDRESS" not in types
+
+
+def test_invalid_credit_card_rejection():
+    dets = regex_detectors("Card: 4111-1111-1111-1112")
+    types = [d["type"] for d in dets]
+    assert "CREDIT_CARD" not in types

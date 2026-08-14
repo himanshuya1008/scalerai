@@ -32,7 +32,9 @@ CORS(app, resources={r"/*": {
         "X-Recall",
         "X-F1",
         "X-Accuracy",
-        "X-Has-Evaluation"
+        "X-Has-Evaluation",
+        "X-Mapping-Count",
+        "X-Processing-Time"
     ]
 }})
 
@@ -52,6 +54,8 @@ def file_too_large(_error):
 
 @app.route('/upload', methods=['POST'])
 def upload_and_redact():
+    import time
+    start_time = time.time()
     if 'file' not in request.files:
         return jsonify({'error': 'no file part'}), 400
     f = request.files['file']
@@ -104,10 +108,14 @@ def upload_and_redact():
         t = d['type']
         counts[t] = counts.get(t, 0) + 1
 
+    elapsed_time = time.time() - start_time
+
     response = send_file(out_path, as_attachment=True)
     response.headers['X-Entities-Detected'] = str(len(detections))
     response.headers['X-Entities-Redacted'] = str(len(detections))
     response.headers['X-Category-Breakdown'] = json.dumps(counts)
+    response.headers['X-Mapping-Count'] = str(len(anonymizer.pseudonym_cache))
+    response.headers['X-Processing-Time'] = f"{elapsed_time:.3f}s"
 
     # Perform evaluation if ground truth is supplied
     if gt_list is not None:

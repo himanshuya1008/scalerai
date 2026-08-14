@@ -62,6 +62,8 @@ function App() {
       const recall = response.headers.get('X-Recall') || '0.000';
       const f1 = response.headers.get('X-F1') || '0.000';
       const accuracy = response.headers.get('X-Accuracy') || '0.000';
+      const mappingCount = response.headers.get('X-Mapping-Count') || '0';
+      const processingTime = response.headers.get('X-Processing-Time') || '0.000s';
 
       const blob = await response.blob();
       const downloadUrl = window.URL.createObjectURL(blob);
@@ -75,6 +77,8 @@ function App() {
         recall,
         f1,
         accuracy,
+        mappingCount,
+        processingTime,
         downloadUrl,
         fileName: `redacted_${file.name}`
       });
@@ -321,32 +325,81 @@ function App() {
               </div>
             </div>
 
-            {/* Category Breakdown */}
-            {Object.keys(result.breakdown).length > 0 && (
+            {/* Additional Metrics */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr 1fr',
+              gap: 16,
+              textAlign: 'center',
+              background: 'rgba(255, 255, 255, 0.02)',
+              padding: 16,
+              borderRadius: 12,
+              border: '1px solid rgba(255, 255, 255, 0.05)'
+            }}>
               <div>
-                <h4 style={{ margin: '0 0 12px 0', fontSize: '1.1rem', fontWeight: 600, color: '#e5e7eb' }}>
-                  PII Breakdown by Category
-                </h4>
-                <div style={{
-                  display: 'flex',
-                  flexWrap: 'wrap',
-                  gap: 10
-                }}>
-                  {Object.entries(result.breakdown).map(([cat, count]) => (
-                    <div key={cat} style={{
-                      background: 'rgba(255, 255, 255, 0.05)',
-                      border: '1px solid rgba(255, 255, 255, 0.1)',
+                <span style={{ display: 'block', fontSize: '1.2rem', fontWeight: 600, color: '#e5e7eb' }}>
+                  {result.processingTime}
+                </span>
+                <span style={{ fontSize: '0.75rem', color: '#9ca3af', textTransform: 'uppercase' }}>
+                  Processing Time
+                </span>
+              </div>
+              <div>
+                <span style={{ display: 'block', fontSize: '1.2rem', fontWeight: 600, color: '#e5e7eb' }}>
+                  {result.mappingCount}
+                </span>
+                <span style={{ fontSize: '0.75rem', color: '#9ca3af', textTransform: 'uppercase' }}>
+                  Unique Mappings
+                </span>
+              </div>
+              <div>
+                <span style={{ display: 'block', fontSize: '1.2rem', fontWeight: 600, color: result.hasEvaluation ? '#fbbf24' : '#9ca3af' }}>
+                  {result.hasEvaluation ? `${(parseFloat(result.f1) * 100).toFixed(1)}% F1` : 'N/A'}
+                </span>
+                <span style={{ fontSize: '0.75rem', color: '#9ca3af', textTransform: 'uppercase' }}>
+                  Detection Success
+                </span>
+              </div>
+            </div>
+
+            {/* Category Breakdown */}
+            <div>
+              <h4 style={{ margin: '0 0 12px 0', fontSize: '1.1rem', fontWeight: 600, color: '#e5e7eb' }}>
+                PII Breakdown by Category
+              </h4>
+              <div style={{
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: 10
+              }}>
+                {[
+                  { key: 'PERSON', label: 'FULL NAME' },
+                  { key: 'EMAIL', label: 'EMAIL' },
+                  { key: 'PHONE', label: 'PHONE' },
+                  { key: 'COMPANY', label: 'COMPANY' },
+                  { key: 'ADDRESS', label: 'ADDRESS' },
+                  { key: 'SSN', label: 'SSN' },
+                  { key: 'CREDIT_CARD', label: 'CREDIT CARD' },
+                  { key: 'DOB', label: 'DATE OF BIRTH' },
+                  { key: 'IP_ADDRESS', label: 'IP ADDRESS' }
+                ].map(({ key, label }) => {
+                  const count = result.breakdown[key] || 0;
+                  return (
+                    <div key={key} style={{
+                      background: count > 0 ? 'rgba(99, 102, 241, 0.1)' : 'rgba(255, 255, 255, 0.02)',
+                      border: count > 0 ? '1px solid rgba(99, 102, 241, 0.3)' : '1px solid rgba(255, 255, 255, 0.05)',
                       borderRadius: 20,
                       padding: '6px 14px',
                       fontSize: '0.9rem',
                       display: 'flex',
                       alignItems: 'center',
-                      gap: 8
+                      gap: 8,
+                      opacity: count > 0 ? 1 : 0.5
                     }}>
-                      <span style={{ fontWeight: 600, color: '#a5b4fc' }}>{cat}</span>
+                      <span style={{ fontWeight: 600, color: count > 0 ? '#a5b4fc' : '#9ca3af' }}>{label}</span>
                       <span style={{
-                        background: '#818cf8',
-                        color: 'white',
+                        background: count > 0 ? '#818cf8' : 'rgba(255, 255, 255, 0.1)',
+                        color: count > 0 ? 'white' : '#9ca3af',
                         borderRadius: '50%',
                         width: 20,
                         height: 20,
@@ -357,10 +410,10 @@ function App() {
                         fontWeight: 700
                       }}>{count}</span>
                     </div>
-                  ))}
-                </div>
+                  );
+                })}
               </div>
-            )}
+            </div>
 
             {/* Evaluation Stats (if available) */}
             {result.hasEvaluation && (

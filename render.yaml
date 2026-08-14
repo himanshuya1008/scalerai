@@ -3,7 +3,7 @@ now services:
     name: scalerai-api
     runtime: python
     plan: free
-    buildCommand: pip install -r requirements.txt
+    buildCommand: pip install -r requirements.txt && python -m spacy download en_core_web_sm
     startCommand: gunicorn src.wsgi:app
     healthCheckPath: /status
     envVars:

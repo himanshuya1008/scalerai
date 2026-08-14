@@ -162,6 +162,24 @@ def regex_detectors(text: str) -> List[Dict]:
             "text": match.group(0)
         })
 
+    # 11. Name Salutation Pattern (e.g., Mr. Rashi Patil, Dr. John Doe)
+    for match in re.finditer(r"\b(?:Mr\.|Ms\.|Mrs\.|Dr\.)\s+([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)+)\b", text):
+        detections_list.append({
+            "type": "PERSON",
+            "start": match.start(1),
+            "end": match.end(1),
+            "text": match.group(1).strip()
+        })
+
+    # 12. Name Prefix Pattern (e.g., Name: Rashi Patil, Contact Person: Rohan Mehta)
+    for match in re.finditer(r"\b(?:Name|Director|Contact Person|Representative):\s*([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)+)\b", text, flags=re.IGNORECASE):
+        detections_list.append({
+            "type": "PERSON",
+            "start": match.start(1),
+            "end": match.end(1),
+            "text": match.group(1).strip()
+        })
+
     return detections_list
 
 

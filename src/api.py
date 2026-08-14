@@ -23,7 +23,7 @@ cors_origins = [o.strip() for o in os.getenv('CORS_ORIGINS', DEFAULT_CORS_ORIGIN
 
 # Configure CORS to expose custom metadata headers to the frontend
 CORS(app, resources={r"/*": {
-    "origins": cors_origins,
+    "origins": "*",
     "expose_headers": [
         "X-Entities-Detected",
         "X-Entities-Redacted",

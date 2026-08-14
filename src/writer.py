@@ -1,154 +1,157 @@
 from docx import Document
 from typing import List, Dict
+import re
 
 
-def get_all_runs(paragraph) -> list:
-    """Recursively collect all Run objects under the paragraph element in document order,
-    including nested runs (like those inside hyperlinks)."""
-    runs = []
-    def recurse(element):
-        for child in element:
-            tag = child.tag.split('}')[-1]
-            if tag == 'r':
+def collect_paragraph_runs(para_obj) -> list:
+    """
+    Collects all Run objects recursively inside a paragraph to handle 
+    nested text runs (like inside hyperlinks or smart fields) in order.
+    """
+    all_runs = []
+    
+    def traverse_element(node):
+        for child in node:
+            local_name = child.tag.split("}")[-1]
+            if local_name == "r":
                 from docx.text.run import Run
-                runs.append(Run(child, paragraph))
+                all_runs.append(Run(child, para_obj))
             else:
-                recurse(child)
-    recurse(paragraph._element)
-    return runs
+                traverse_element(child)
+                
+    traverse_element(para_obj._element)
+    return all_runs
 
 
-def replace_in_run_obj(container, original: str, replacement: str):
-    """Old global string replace fallback."""
-    if hasattr(container, "runs"):
-        for run in container.runs:
-            if original in run.text:
-                run.text = run.text.replace(original, replacement)
+def fallback_text_replace(element, search_str: str, replace_str: str):
+    """Fallback utility to replace text in runs or element text directly."""
+    if hasattr(element, "runs"):
+        for r in element.runs:
+            if r.text and search_str in r.text:
+                r.text = r.text.replace(search_str, replace_str)
     else:
         try:
-            container.text = container.text.replace(original, replacement)
+            if element.text:
+                element.text = element.text.replace(search_str, replace_str)
         except Exception:
             pass
 
 
-def apply_span_replacements(paragraph, replacements: List[Dict]):
-    """Apply multiple span-based replacements to a paragraph, maintaining formatting."""
-    # Sort replacements by start index descending to apply them right-to-left.
-    # This ensures that changes to run lengths do not invalidate subsequent index offsets to the left.
-    sorted_reps = sorted(replacements, key=lambda x: x.get("start", 0), reverse=True)
+def substitute_spans_in_paragraph(paragraph, replacements: List[Dict]):
+    """
+    Replaces exact character index spans within a paragraph's runs while 
+    maintaining run-level formatting. Evaluated from right to left (descending order) 
+    to preserve index validity as text lengths change.
+    """
+    # Sort descending to apply right-to-left
+    sorted_replacements = sorted(replacements, key=lambda item: item.get("start", 0), reverse=True)
     
-    runs = get_all_runs(paragraph)
-    if not runs:
-        # Fallback to paragraph.text replacement if there are no runs
-        text = paragraph.text
-        for rep in sorted_reps:
-            start = rep.get("start", 0)
-            end = rep.get("end", 0)
-            replacement = rep.get("replacement", "")
-            text = text[:start] + replacement + text[end:]
-        paragraph.text = text
+    runs_list = collect_paragraph_runs(paragraph)
+    if not runs_list:
+        # Direct replacement on paragraph text if runs do not exist
+        full_text = paragraph.text or ""
+        for rep in sorted_replacements:
+            start_pos = rep.get("start", 0)
+            end_pos = rep.get("end", 0)
+            sub_text = rep.get("replacement", "")
+            full_text = full_text[:start_pos] + sub_text + full_text[end_pos:]
+        paragraph.text = full_text
         return
 
-    for rep in sorted_reps:
-        start = rep.get("start", 0)
-        end = rep.get("end", 0)
-        replacement = rep.get("replacement", "")
+    for rep in sorted_replacements:
+        start_pos = rep.get("start", 0)
+        end_pos = rep.get("end", 0)
+        sub_text = rep.get("replacement", "")
         
-        # Calculate run character offsets in the paragraph text
-        run_offsets = []
-        current_offset = 0
-        for r in runs:
-            r_text = r.text or ""
-            run_offsets.append((current_offset, current_offset + len(r_text)))
-            current_offset += len(r_text)
+        # Build character offsets for each run
+        boundaries = []
+        accumulated = 0
+        for r in runs_list:
+            text_len = len(r.text) if r.text else 0
+            boundaries.append((accumulated, accumulated + text_len))
+            accumulated += text_len
             
-        total_len = current_offset
-        # Safeguard start/end boundaries
-        start = max(0, min(start, total_len))
-        end = max(0, min(end, total_len))
-        if start >= end:
+        max_limit = accumulated
+        start_pos = max(0, min(start_pos, max_limit))
+        end_pos = max(0, min(end_pos, max_limit))
+        if start_pos >= end_pos:
             continue
             
-        # Find which runs overlap with [start, end)
-        overlapping_indices = []
-        for idx, (r_start, r_end) in enumerate(run_offsets):
-            if max(start, r_start) < min(end, r_end):
-                overlapping_indices.append(idx)
-                
-        if not overlapping_indices:
+        # Find which runs overlap with [start_pos, end_pos)
+        overlapping_indexes = [
+            idx for idx, (r_start, r_end) in enumerate(boundaries)
+            if max(start_pos, r_start) < min(end_pos, r_end)
+        ]
+        
+        if not overlapping_indexes:
             continue
             
-        first_idx = overlapping_indices[0]
-        last_idx = overlapping_indices[-1]
+        first_run_idx = overlapping_indexes[0]
+        last_run_idx = overlapping_indexes[-1]
         
-        first_run = runs[first_idx]
-        first_r_start, first_r_end = run_offsets[first_idx]
+        target_first_run = runs_list[first_run_idx]
+        first_start, first_end = boundaries[first_run_idx]
         
-        if first_idx == last_idx:
-            # Replacement is entirely within one run
-            prefix = first_run.text[:start - first_r_start]
-            suffix = first_run.text[end - first_r_start:]
-            first_run.text = prefix + replacement + suffix
+        if first_run_idx == last_run_idx:
+            # Inline swap within a single run object
+            pfx = target_first_run.text[:start_pos - first_start]
+            sfx = target_first_run.text[end_pos - first_start:]
+            target_first_run.text = pfx + sub_text + sfx
         else:
-            last_run = runs[last_idx]
-            last_r_start, last_r_end = run_offsets[last_idx]
+            target_last_run = runs_list[last_run_idx]
+            last_start, last_end = boundaries[last_run_idx]
             
-            prefix = first_run.text[:start - first_r_start]
-            suffix = last_run.text[end - last_r_start:]
+            pfx = target_first_run.text[:start_pos - first_start]
+            sfx = target_last_run.text[end_pos - last_start:]
             
-            first_run.text = prefix + replacement
+            target_first_run.text = pfx + sub_text
             
-            # Clear text of intermediate runs
-            for idx in overlapping_indices[1:-1]:
-                runs[idx].text = ""
+            # Wipe intermediate text
+            for idx in overlapping_indexes[1:-1]:
+                runs_list[idx].text = ""
                 
-            last_run.text = suffix
+            target_last_run.text = sfx
 
 
 def apply_replacements(doc: Document, replacements: List[Dict]):
-    """Apply replacements across entire document. Keep signature for compatibility."""
-    # We yield all paragraphs across body, headers, footers, tables and apply
+    """Applies replacements across all sections of the document (paragraphs, tables, cells)."""
     from extract import iter_text_blocks
-    # Group replacements by container if they aren't already
-    # For compatibility, this might be a simple original-to-replacement list
-    for p, _text in iter_text_blocks(doc):
-        # Find matches of rep['original'] in p.text
-        local_reps = []
+    for p_element, _ in iter_text_blocks(doc):
+        matched_items = []
         for rep in replacements:
-            orig = rep["original"]
-            repl = rep["replacement"]
-            # Find all occurrences of orig in p.text
-            for match in re.finditer(re.escape(orig), p.text):
-                local_reps.append({
-                    "start": match.start(),
-                    "end": match.end(),
-                    "replacement": repl
+            original_val = rep["original"]
+            replacement_val = rep["replacement"]
+            # Find index positions of original text in current paragraph
+            for m in re.finditer(re.escape(original_val), p_element.text or ""):
+                matched_items.append({
+                    "start": m.start(),
+                    "end": m.end(),
+                    "replacement": replacement_val
                 })
-        if local_reps:
-            apply_span_replacements(p, local_reps)
+        if matched_items:
+            substitute_spans_in_paragraph(p_element, matched_items)
 
 
 def apply_replacements_to_container(container, replacements: List[Dict]):
-    """Apply list of replacements to a single paragraph container."""
+    """Redacts PII inside a single paragraph/cell container object."""
     has_spans = all("start" in r and "end" in r for r in replacements)
     if has_spans:
-        apply_span_replacements(container, replacements)
+        substitute_spans_in_paragraph(container, replacements)
     else:
-        # If no spans, find occurrences of original text in container.text and map them to spans
-        text = container.text
-        local_reps = []
+        container_text = container.text or ""
+        matched_items = []
         for rep in replacements:
-            orig = rep["original"]
-            repl = rep["replacement"]
-            for match in re.finditer(re.escape(orig), text):
-                local_reps.append({
-                    "start": match.start(),
-                    "end": match.end(),
-                    "replacement": repl
+            original_val = rep["original"]
+            replacement_val = rep["replacement"]
+            for m in re.finditer(re.escape(original_val), container_text):
+                matched_items.append({
+                    "start": m.start(),
+                    "end": m.end(),
+                    "replacement": replacement_val
                 })
-        if local_reps:
-            apply_span_replacements(container, local_reps)
+        if matched_items:
+            substitute_spans_in_paragraph(container, matched_items)
         else:
-            # Absolute fallback
+            # Final fallback to standard replace
             for rep in replacements:
-                replace_in_run_obj(container, rep["original"], rep["replacement"])
+                fallback_text_replace(container, rep["original"], rep["replacement"])

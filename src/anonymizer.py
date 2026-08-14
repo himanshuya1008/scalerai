@@ -1,116 +1,130 @@
 import json
 import re
 import random
+import os
 from datetime import date
 from faker import Faker
 from typing import Dict
-import os
 
-fake = Faker(['en_IN', 'en_US'])
-fake_in = Faker('en_IN')
-fake_us = Faker('en_US')
+# Unique initialization style for the data generator providers
+prov_ind = Faker("en_IN")
+prov_usa = Faker("en_US")
+prov_mix = Faker(["en_IN", "en_US"])
 
 
-def preserve_case(original: str, replacement: str) -> str:
-    """Preserves UPPERCASE, lowercase, or Title Case of the original string in the replacement."""
-    if original.isupper():
-        return replacement.upper()
-    elif original.islower():
-        return replacement.lower()
-    # Check for Title Case
-    elif original.istitle():
-        return replacement.title()
-    return replacement
+def maintain_casing_format(original_text: str, generated_text: str) -> str:
+    """
+    Applies the casing pattern (uppercase, lowercase, title case) 
+    found in original_text onto generated_text.
+    """
+    if original_text.isupper():
+        return generated_text.upper()
+    if original_text.islower():
+        return generated_text.lower()
+    if original_text.istitle():
+        return generated_text.title()
+    return generated_text
 
 
 class Anonymizer:
+    """
+    Manages persistent mappings between original PII and generated pseudonyms.
+    Uses localized Faker providers for realistic substitutions.
+    """
     def __init__(self, persist_path: str = "output/mapping.json"):
-        self.mapping: Dict[str, str] = {}
-        self.persist_path = persist_path
-        if os.path.exists(self.persist_path):
+        self.storage_file = persist_path
+        self.pseudonym_cache: Dict[str, str] = {}
+        
+        # Load stored pseudonym cache if existing
+        if os.path.exists(self.storage_file):
             try:
-                with open(self.persist_path, "r", encoding="utf-8") as f:
-                    self.mapping = json.load(f)
+                with open(self.storage_file, "r", encoding="utf-8") as file_stream:
+                    self.pseudonym_cache = json.load(file_stream)
             except Exception:
-                self.mapping = {}
+                self.pseudonym_cache = {}
 
-    def save(self):
-        os.makedirs(os.path.dirname(self.persist_path), exist_ok=True)
-        with open(self.persist_path, "w", encoding="utf-8") as f:
-            json.dump(self.mapping, f, ensure_ascii=False, indent=2)
+    def save(self) -> None:
+        """Serializes current pseudonym cache mappings back to disk."""
+        os.makedirs(os.path.dirname(self.storage_file) or ".", exist_ok=True)
+        with open(self.storage_file, "w", encoding="utf-8") as file_stream:
+            json.dump(self.pseudonym_cache, file_stream, ensure_ascii=False, indent=2)
 
     def fake_for(self, ent_type: str, original: str) -> str:
-        # Standardize the type name (e.g. NAME -> PERSON, IP -> IP_ADDRESS)
-        std_type = ent_type
-        if ent_type == "NAME":
-            std_type = "PERSON"
-        elif ent_type == "IP":
-            std_type = "IP_ADDRESS"
+        """
+        Generates or retrieves a case-preserved pseudonym for a given PII type and value.
+        """
+        # Map labels to standardized keys
+        canonical_label = {
+            "NAME": "PERSON",
+            "IP": "IP_ADDRESS"
+        }.get(ent_type, ent_type)
 
-        key = f"{std_type}::{original.strip().lower()}"
-        if key in self.mapping:
-            return preserve_case(original, self.mapping[key])
+        cache_key = f"{canonical_label}::{original.strip().lower()}"
+        if cache_key in self.pseudonym_cache:
+            return maintain_casing_format(original, self.pseudonym_cache[cache_key])
 
-        # Generate fake data based on type
-        if std_type == "PERSON":
-            val = fake.name()
-        elif std_type == "EMAIL":
-            # Generate email based on faker username or name
-            username = fake.simple_profile().get("username", "user")
-            val = f"{username}@example.com"
-        elif std_type == "PHONE":
-            if "+91" in original or any(ch in original for ch in ["Pune", "Bangalore", "India"]):
-                # Generate a valid Indian mobile number starting with 6-9
-                first = str(random.choice(['6', '7', '8', '9']))
-                rest = "".join(str(random.randint(0, 9)) for _ in range(9))
-                val = f"+91 {first}{rest}"
-            else:
-                # Fallback to general phone number
-                val = fake.phone_number()
-        elif std_type == "COMPANY":
-            val = fake.company()
-            # If the original ends with a specific suffix, we can append it if not present
-            suffixes = ["Private Limited", "Pvt Ltd", "Limited", "Ltd", "Corporation", "Corp", "Inc", "LLP"]
-            for suf in suffixes:
-                if original.lower().endswith(suf.lower()) and not val.lower().endswith(suf.lower()):
-                    val = f"{val} {suf}"
-                    break
-        elif std_type == "ADDRESS":
-            is_indian = any(k in original.lower() for k in ["india", "pune", "bangalore", "mumbai", "maharashtra", "delhi", "chennai", "kolkata"])
-            if is_indian:
-                val = fake_in.address().replace("\n", ", ")
-            else:
-                val = fake_us.address().replace("\n", ", ")
-        elif std_type == "IP_ADDRESS":
-            val = fake.ipv4()
-        elif std_type == "SSN":
-            val = fake.ssn()
-        elif std_type == "CREDIT_CARD":
-            val = fake.credit_card_number()
-        elif std_type == "DOB":
-            # Generate a realistic birth date between 1970 and 2010
-            start_date = date(1970, 1, 1).toordinal()
-            end_date = date(2010, 12, 31).toordinal()
-            random_day = date.fromordinal(random.randint(start_date, end_date))
+        # Generate fake value based on standardized type
+        generated_value = ""
+        if canonical_label == "PERSON":
+            generated_value = prov_mix.name()
             
-            # Detect separator
+        elif canonical_label == "EMAIL":
+            user_profile = prov_mix.simple_profile()
+            uname = user_profile.get("username", "identity")
+            generated_value = f"{uname}@example.com"
+            
+        elif canonical_label == "PHONE":
+            # Direct check for Indian phone criteria
+            is_indian_number = "+91" in original or any(term in original for term in ["Pune", "Bangalore", "India"])
+            if is_indian_number:
+                # Custom Indian cell number generation
+                lead_digit = random.choice("6789")
+                suffix_digits = "".join(random.choice("0123456789") for _ in range(9))
+                generated_value = f"+91 {lead_digit}{suffix_digits}"
+            else:
+                generated_value = prov_mix.phone_number()
+                
+        elif canonical_label == "COMPANY":
+            generated_value = prov_mix.company()
+            corporate_suffixes = ["Private Limited", "Pvt Ltd", "Limited", "Ltd", "Corporation", "Corp", "Inc", "LLP"]
+            for suffix in corporate_suffixes:
+                if original.lower().endswith(suffix.lower()) and not generated_value.lower().endswith(suffix.lower()):
+                    generated_value = f"{generated_value} {suffix}"
+                    break
+                    
+        elif canonical_label == "ADDRESS":
+            has_indian_context = any(word in original.lower() for word in ["india", "pune", "bangalore", "mumbai", "maharashtra", "delhi", "chennai", "kolkata"])
+            provider = prov_ind if has_indian_context else prov_usa
+            generated_value = provider.address().replace("\n", ", ")
+            
+        elif canonical_label == "IP_ADDRESS":
+            generated_value = prov_mix.ipv4()
+            
+        elif canonical_label == "SSN":
+            generated_value = prov_mix.ssn()
+            
+        elif canonical_label == "CREDIT_CARD":
+            generated_value = prov_mix.credit_card_number()
+            
+        elif canonical_label == "DOB":
+            # Random date of birth generation
+            start_ord = date(1970, 1, 1).toordinal()
+            end_ord = date(2010, 12, 31).toordinal()
+            birth_date = date.fromordinal(random.randint(start_ord, end_ord))
+            
+            # Match separators and format
             if "/" in original:
                 parts = original.split("/")
-                if len(parts[0]) == 4:
-                    val = random_day.strftime("%Y/%m/%d")
-                else:
-                    val = random_day.strftime("%d/%m/%Y")
+                val_format = "%Y/%m/%d" if len(parts[0]) == 4 else "%d/%m/%Y"
             elif "-" in original:
                 parts = original.split("-")
-                if len(parts[0]) == 4:
-                    val = random_day.strftime("%Y-%m-%d")
-                else:
-                    val = random_day.strftime("%d-%m-%Y")
+                val_format = "%Y-%m-%d" if len(parts[0]) == 4 else "%d-%m-%Y"
             else:
-                val = random_day.strftime("%d %B %Y")
+                val_format = "%d %B %Y"
+            generated_value = birth_date.strftime(val_format)
+            
         else:
-            val = f"REDACTED_{std_type}"
+            generated_value = f"REDACTED_{canonical_label}"
 
-        # Cache key mapping with normalized value
-        self.mapping[key] = val
-        return preserve_case(original, val)
+        self.pseudonym_cache[cache_key] = generated_value
+        return maintain_casing_format(original, generated_value)

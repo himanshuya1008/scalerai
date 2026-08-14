@@ -18,12 +18,7 @@ except ImportError:
 
 app = Flask(__name__)
 
-DEFAULT_CORS_ORIGINS = (
-    'http://localhost:3000,'
-    'http://127.0.0.1:3000,'
-    'http://localhost:3001,'
-    'http://127.0.0.1:3001'
-)
+DEFAULT_CORS_ORIGINS = '*'
 cors_origins = [o.strip() for o in os.getenv('CORS_ORIGINS', DEFAULT_CORS_ORIGINS).split(',') if o.strip()]
 
 # Configure CORS to expose custom metadata headers to the frontend
